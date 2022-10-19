@@ -1,15 +1,16 @@
 package com.example.asynctask
 
-import android.annotation.SuppressLint
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.os.Message
+import android.util.Log
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import com.example.asynctask.databinding.ActivityMainBinding
-import kotlin.concurrent.thread
+import kotlinx.coroutines.GlobalScope
+
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,98 +18,54 @@ class MainActivity : AppCompatActivity() {
         ActivityMainBinding.inflate(layoutInflater)
     }
 
-    // приложение крашилось потому, что работать с view можно только в главном потоке
-    // передавать вызов метода из главного потока можно посредством класса Handler,
-    // которому на вход идет объект класса Runnable
-
-    // также для передачи и обработки сообщений между потоками используется наследник Handler
-    // с переопределенным методом
-
-    private val handler = object : Handler() {
-        @SuppressLint("HandlerLeak")
-        override fun handleMessage(msg: Message) {
-            super.handleMessage(msg)
-            println("HANDLE_MESSAGE $msg")
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
         binding.button.setOnClickListener {
-            loadData()
-        }
 
-        handler.sendMessage(Message.obtain(handler, 0, 11))
-    }
-
-    /** Что выполняется последовательно, то является синхронным, иначе асинхронным*/
-
-    private fun loadData() {
-        // -------------------------------------
-        binding.progressBar.isVisible = true   //
-        binding.button.isEnabled = false       //
-        //--------------------------------------
-        // это и есть callback, который идет на вход функции с потоком
-        loadCity {
-            // код внутри скобок будет выполняться после отработки потока
-            binding.tvCity.text = it
-            loadTemp(it) {
-                binding.tvTempreture.text = it.toString()
-                binding.progressBar.isVisible = false
-                binding.button.isEnabled = true
-            }
-            /*
-            когда внутри одного callback'а работают еще и другие, например их вложено 20-30 и т.д,
-            такое явление называетсяс callback Hell. Это не есть хорошо
+            /**
+             * создается сфера действия в рамках жизненного цикла приложения, каманды в которой
+             * выполняются отдельно от главного потока, если умрет activity, запрос также будет
+             * остановлен
              */
+            lifecycleScope.launch {
+                loadData()
+            }
         }
     }
+
 
     /**
-     * Kotlin thread исполняется сразу без команды
-     *
-     * callback - лямбда функция, которая в данном случае принимает Int и ничего не возвращает
-     * для передачи данных из потока используется метод invoke()
+     * для использования корутины функция помечается модификатором suspend
      * */
-
-    private fun loadTemp(city: String, callback: (Int) -> Unit) {
-        /* объект класса Handler без параметров создается только в главном потоке,
-         для создания в другом потоке необходимо объект Runnable в очередь сообщений  из класса
-         Looper, в котором надо исполнить команды:
-         */
-        /*Handler(Looper.getMainLooper()*//*ссылка на главный поток*//*).post {
-            TODO()
-        }*/
-        // для передачи управления в другой поток:
-       /* Handler(Looper.myLooper()!!).post{
-            TODO()
-        }*/
-        thread {
-            // также можно использовать метод runOnUiThread{}
-            runOnUiThread{
-                TODO()
-            }
-            handler.post {
-                Toast.makeText(
-                    this,
-                    "Loading temperature for city : ${city}",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            Thread.sleep(5000)
-            handler.post {
-                callback.invoke(17)
-            }
-        }
+    private suspend fun loadData() {
+        Log.d("MainActivity", "Load started")
+        binding.progressBar.isVisible = true
+        binding.button.isEnabled = false
+        val city = loadCity()
+        binding.tvCity.text = city
+        val temp = loadTemp(city)
+        binding.tvTempreture.text = temp.toString()
+        binding.progressBar.isVisible = false
+        binding.button.isEnabled = true
+        Log.d("MainActivity", "Load finished")
     }
 
-    private fun loadCity(callback: (String) -> Unit) {
-        thread {
-            Thread.sleep(5000)
-            handler.post {
-                callback.invoke("Moscow")
-            }
-        }
+
+    private suspend fun loadTemp(city: String): Int {
+        Toast.makeText(
+            this,
+            "Loading temperature for city : ${city}",
+            Toast.LENGTH_SHORT
+        ).show()
+        // метод delay делает отложенное выполнение, при этом не блокируя основной поток
+        delay(5000)
+        return 17
     }
+
+    private suspend fun loadCity(): String {
+        delay(5000)
+        return "Moscow"
+    }
+
 }
