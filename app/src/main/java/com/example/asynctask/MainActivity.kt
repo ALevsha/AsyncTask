@@ -58,6 +58,10 @@ class MainActivity : AppCompatActivity() {
                 binding.progressBar.isVisible = false
                 binding.button.isEnabled = true
             }
+            /*
+            когда внутри одного callback'а работают еще и другие, например их вложено 20-30 и т.д,
+            такое явление называетсяс callback Hell. Это не есть хорошо
+             */
         }
     }
 
@@ -77,7 +81,7 @@ class MainActivity : AppCompatActivity() {
             TODO()
         }*/
         // для передачи управления в другой поток:
-       /* Handler(Looper.myLooper()!!){
+       /* Handler(Looper.myLooper()!!).post{
             TODO()
         }*/
         thread {
